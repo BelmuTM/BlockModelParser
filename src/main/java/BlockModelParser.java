@@ -9,9 +9,14 @@ import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class BlockModelParser {
+    /*
+        CREDITS:
+        Bálint#1673 - Suggesting the idea of this project and helping to go through it
+        fayer3#2332 - Help with compressing the models
+     */
+
     static final int MAX_HIERARCHY_SIZE = 10;
 
     static final String modelsPath        = "src/main/java/blockmodels";
@@ -47,14 +52,21 @@ public class BlockModelParser {
         for (int i = 0; i < elements.size(); i++) {
             JsonObject object = elements.get(i).getAsJsonObject();
 
-            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0});
+            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0});
 
             Double[] from = stringToDoubleArray(object.get("from").toString());
             Double[] to   = stringToDoubleArray(object.get("to").toString());
 
             for (int j = 0; j < 3; j++) {
-                box.size[j]   = 1.0 / 16 * ((to[j] - from[j]) * 0.5);
-                box.offset[j] = 1.0 / 16 * ((from[j] + to[j]) * 0.25);
+                box.size[j]   = 1.0 / 32 * ((to[j] - from[j]) * 0.5);
+                box.offset[j] = 1.0 / 32 * ((from[j] + to[j]) * 0.5);
+            }
+
+            JsonObject rotation = object.getAsJsonObject("rotation");
+
+            if(rotation != null) {
+                box.rotation[0] = rotation.get("angle").getAsDouble();
+                box.rotation[1] = rotation.get("angle").getAsDouble();
             }
             boxList.add(box);
         }
@@ -108,14 +120,12 @@ public class BlockModelParser {
         return new Parent(parent, children);
     }
 
-    public static StringBuilder constructModelDeclaration(Model model) {
-        StringBuilder modelDeclaration = new StringBuilder();
+    public static StringBuilder constructBoxDeclaration(Model model) {
+        StringBuilder boxDeclaration = new StringBuilder();
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
         symbols.setDecimalSeparator('.');
         DecimalFormat numFormat = new DecimalFormat("0.000000", symbols);
-
-        String rotVec = "vec2(" + model.rotation[0] + ", " + model.rotation[1] + ")";
 
         for(int i = 0; i < model.boxes.length; i++) {
 
@@ -125,12 +135,14 @@ public class BlockModelParser {
                 size.add(numFormat.format(model.boxes[i].size[j]));
                 offset.add(numFormat.format(model.boxes[i].offset[j]));
             }
+
             String boxVec = "vec3(" + size.toString().replaceAll("\\[", "").replaceAll("]", "");
             String offVec = "vec3(" + offset.toString().replaceAll("\\[", "").replaceAll("]", "");
+            String rotVec = "vec2(" + (model.rotation[0] + model.boxes[i].rotation[0]) + ", " + (model.rotation[1] + model.boxes[i].rotation[1]) + ")";
 
-            modelDeclaration.append("    Box(").append(boxVec).append("), ").append(offVec).append("), ").append(rotVec).append("),\n");
+            boxDeclaration.append("    Box(").append(boxVec).append("), ").append(offVec).append("), ").append(rotVec).append("),\n");
         }
-        return modelDeclaration;
+        return boxDeclaration;
     }
 
     public static void generateBlockFiles() {
@@ -177,28 +189,24 @@ public class BlockModelParser {
 
             StringBuilder properties = new StringBuilder();
 
-            Set<Parent> hierarchyNoDuplicates = new HashSet<>();
+            List<Parent> hierarchyNoDuplicates = new ArrayList<>();
 
             for(Parent parent : parents) {
                 List<Model> children = new ArrayList<>();
                 for(Parent duplicate : parents) {
 
-                    if(duplicate.children.size() == 0) {
-                        continue;
-                    }
-
-                    boolean equalBoxes    = Arrays.equals(parent.model.boxes, duplicate.model.boxes);
-                    boolean equalRotation = Arrays.equals(parent.model.rotation, duplicate.model.rotation);
-
-                    if(duplicate.children.equals(parent.children) && equalBoxes && equalRotation) {
-                        children.add(duplicate.children.get(0));
+                    if(parent.model.equals(duplicate.model)) {
+                        if(duplicate.children.size() == 0) children.add(duplicate.model);
+                        else                               children.add(duplicate.children.get(0));
                     }
                 }
 
-                Parent foo = new Parent(parent.model, children);
+                Parent newParent = new Parent(parent.model, children);
 
-                if(!hierarchyNoDuplicates.add(foo)) System.out.println(parent.model.name);
-                hierarchyNoDuplicates.add(foo);
+                if(!hierarchyNoDuplicates.contains(newParent))
+                    hierarchyNoDuplicates.add(newParent);
+                else
+                    System.out.println(parent.model.name);
             }
 
             int id = 0, endIndex = 0;
@@ -206,22 +214,22 @@ public class BlockModelParser {
                 Model parentModel    = parent.model;
                 List<Model> children = parent.children;
 
-                if(parentModel.boxes == null) break;
+                if(parentModel.boxes == null) continue;
 
                 id++;
                 int startIndex = endIndex;
                 endIndex      += parentModel.boxes.length;
 
-                StringBuilder modelDeclaration = constructModelDeclaration(parentModel);
-                StringBuilder childrenList = new StringBuilder();
+                StringBuilder boxDeclaration = constructBoxDeclaration(parentModel);
+                StringBuilder childrenList   = new StringBuilder();
 
                 for(Model child : children) {
                     childrenList.append(child.name).append(" ");
                 }
 
-                models.append("    // ").append(parentModel.name).append(" (").append(id).append(")\n    // (").append(children.size()).append(")  ").append(childrenList).append("\n").append(modelDeclaration);
-                indices.append("    (").append(parentModel.boxes.length).append(" << 16) | (").append(startIndex).append(" << 16),\n");
-                properties.append("block.").append(id).append(" = ").append(childrenList);
+                models.append("    // ").append(parentModel.name).append(" (").append(id).append(")\n    // (").append(children.size()).append(") ").append(childrenList).append("\n").append(boxDeclaration);
+                indices.append("    (uint(").append(parentModel.boxes.length).append(") << 16) | uint(").append(startIndex).append("),\n");
+                properties.append("block.").append(id).append(" = ").append(childrenList.toString().trim()).append("\n");
             }
             models.append(");"); indices.append(");");
 
@@ -231,7 +239,7 @@ public class BlockModelParser {
 
             propertiesWriter.write(properties.toString()); propertiesWriter.close();
             modelsWriter.write(models.toString());         modelsWriter.close();
-            indicesWriter.write(indices.toString());  indicesWriter.close();
+            indicesWriter.write(indices.toString());       indicesWriter.close();
 
             StringBuilder missedFilesList = new StringBuilder();
             for(File missedFile : missedFiles)
@@ -240,7 +248,6 @@ public class BlockModelParser {
             long processEnd = System.currentTimeMillis();
             System.out.println("[SUCCESS] Wrote to files in " + (processEnd - processStart) + "ms.");
             System.out.println("[INFO] " + missedFiles.size() + " files were missed:" + missedFilesList);
-            //System.out.println("duplicates: " + findDuplicatesParents(hierarchy).size());
 
         } catch(IOException ioe) { ioe.printStackTrace(); }
     }
