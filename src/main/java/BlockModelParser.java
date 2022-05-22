@@ -52,7 +52,7 @@ public class BlockModelParser {
         for (int i = 0; i < elements.size(); i++) {
             JsonObject object = elements.get(i).getAsJsonObject();
 
-            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0});
+            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0});
 
             Double[] from = stringToDoubleArray(object.get("from").toString());
             Double[] to   = stringToDoubleArray(object.get("to").toString());
@@ -65,8 +65,16 @@ public class BlockModelParser {
             JsonObject rotation = object.getAsJsonObject("rotation");
 
             if(rotation != null) {
-                box.rotation[0] = rotation.get("angle").getAsDouble();
-                box.rotation[1] = rotation.get("angle").getAsDouble();
+                Double[] rotationOrigin = stringToDoubleArray(rotation.get("origin").toString());
+                String axis             = rotation.get("axis").toString();
+                Double angle            = rotation.get("angle").getAsDouble();
+
+                box.rotation[0] = axis.contains("x") ? angle : 0;
+                box.rotation[1] = axis.contains("y") ? angle : 0;
+
+                for (int j = 0; j < 3; j++) {
+                    box.rotationOrigin[j] = 1.0 / 32 * rotationOrigin[j];
+                }
             }
             boxList.add(box);
         }
@@ -127,20 +135,25 @@ public class BlockModelParser {
         symbols.setDecimalSeparator('.');
         DecimalFormat numFormat = new DecimalFormat("0.000000", symbols);
 
-        for(int i = 0; i < model.boxes.length; i++) {
+        String modelRotVec = "vec2(" + model.rotation[0] + ", " + model.rotation[1] + ")";
 
-            List<String> size   = new ArrayList<>();
-            List<String> offset = new ArrayList<>();
+        for(int i = 0; i < model.boxes.length; i++) {
+            List<String> size           = new ArrayList<>();
+            List<String> offset         = new ArrayList<>();
+            List<String> rotationOrigin = new ArrayList<>();
+
             for(int j = 0; j < 3; j++) {
                 size.add(numFormat.format(model.boxes[i].size[j]));
                 offset.add(numFormat.format(model.boxes[i].offset[j]));
+                rotationOrigin.add(numFormat.format(model.boxes[i].rotationOrigin[j]));
             }
 
-            String boxVec = "vec3(" + size.toString().replaceAll("\\[", "").replaceAll("]", "");
-            String offVec = "vec3(" + offset.toString().replaceAll("\\[", "").replaceAll("]", "");
-            String rotVec = "vec2(" + (model.rotation[0] + model.boxes[i].rotation[0]) + ", " + (model.rotation[1] + model.boxes[i].rotation[1]) + ")";
+            String boxVec = "vec3(" + size.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
+            String offVec = "vec3(" + offset.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
+            String oriVec = "vec3(" + rotationOrigin.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
+            String rotVec = "vec2(" + model.boxes[i].rotation[0] + ", " + model.boxes[i].rotation[1] + ")";
 
-            boxDeclaration.append("    Box(").append(boxVec).append("), ").append(offVec).append("), ").append(rotVec).append("),\n");
+            boxDeclaration.append("    Box(").append(boxVec).append(", ").append(offVec).append(", ").append(modelRotVec).append(", ").append(oriVec).append(", ").append(rotVec).append("),\n");
         }
         return boxDeclaration;
     }
