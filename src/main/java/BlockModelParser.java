@@ -58,8 +58,8 @@ public class BlockModelParser {
             Double[] to   = stringToDoubleArray(object.get("to").toString());
 
             for (int j = 0; j < 3; j++) {
-                box.size[j]   = 1.0 / 32 * ((to[j] - from[j]) * 0.5);
-                box.offset[j] = 1.0 / 32 * ((from[j] + to[j]) * 0.5);
+                box.size[j]   = 1.0 / 16 * ((to[j] - from[j]) * 0.5);
+                box.offset[j] = ((1.0 / 32 * ((from[j] + to[j]) * 0.5)) - 0.5) * 2.0 + 0.5;
             }
 
             JsonObject rotation = object.getAsJsonObject("rotation");
@@ -73,7 +73,7 @@ public class BlockModelParser {
                 box.rotation[1] = axis.contains("y") ? angle : 0;
 
                 for (int j = 0; j < 3; j++) {
-                    box.rotationOrigin[j] = 1.0 / 32 * rotationOrigin[j];
+                    box.rotationOrigin[j] = ((1.0 / 32 * rotationOrigin[j]) - 0.5) * 2.0 + 0.5;
                 }
             }
             boxList.add(box);
@@ -244,7 +244,8 @@ public class BlockModelParser {
                 indices.append("    (uint(").append(parentModel.boxes.length).append(") << 16) | uint(").append(startIndex).append("),\n");
                 properties.append("block.").append(id).append(" = ").append(childrenList.toString().trim()).append("\n");
             }
-            models.append(");"); indices.append(");");
+            models.append(");").deleteCharAt(models.lastIndexOf(","));
+            indices.append(");").deleteCharAt(indices.lastIndexOf(","));
 
             FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
             FileWriter modelsWriter     = new FileWriter(modelsOutPath);
