@@ -7,8 +7,8 @@ public class Parent {
     public List<Model> children;
 
     public Parent(Model model, List<Model> children) {
-        this.model    = model;
-        this.children = children;
+        this.model     = model;
+        this.children  = children;
     }
 
     @Override

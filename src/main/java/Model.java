@@ -1,16 +1,13 @@
 import java.util.Arrays;
-import java.util.Objects;
 
 public class Model {
 
     public String name;
     public Box[] boxes;
-    public Integer[] rotation;
 
-    public Model(String name, Box[] boxes, Integer[] rotation) {
-        this.name     = name;
-        this.boxes    = boxes;
-        this.rotation = rotation;
+    public Model(String name, Box[] boxes) {
+        this.name  = name;
+        this.boxes = boxes;
     }
 
     @Override
@@ -18,13 +15,11 @@ public class Model {
         if (this == o) return true;
         if (getClass() != o.getClass()) return false;
         Model model = (Model) o;
-        return Arrays.equals(boxes, model.boxes) && Arrays.equals(rotation, model.rotation);
+        return Arrays.equals(boxes, model.boxes);
     }
 
     @Override
     public int hashCode() {
-        int result = Arrays.hashCode(boxes);
-        result = 31 * result + Arrays.hashCode(rotation);
-        return result;
+        return Arrays.hashCode(boxes);
     }
 }
