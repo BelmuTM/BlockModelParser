@@ -68,7 +68,11 @@ public class BlockModelParser {
 
             if(rotation != null) {
                 Double[] rotationOrigin = stringToDoubleArray(rotation.get("origin").toString());
-                box.boxRotation = getRotation(rotation);
+                String axis             = rotation.get("axis").toString();
+                Double angle            = rotation.get("angle").getAsDouble();
+
+                box.boxRotation[0] = axis.contains("x") ? angle : 0;
+                box.boxRotation[1] = axis.contains("y") ? angle : 0;
 
                 for (int j = 0; j < 3; j++) {
                     box.rotationOrigin[j] = ((1.0 / 32 * rotationOrigin[j]) - 0.5) * 2.0 + 0.5;
@@ -389,6 +393,7 @@ public class BlockModelParser {
             }
 
             int id = 0, endIndex = 0;
+            int totalBoxes = 0;
             for(Parent parent : parentsNoDuplicates) {
                 Model parentModel    = parent.model;
                 List<Model> children = parent.children;
@@ -396,6 +401,8 @@ public class BlockModelParser {
                 if(parentModel.boxes == null) continue;
                 Set<Box> boxNoDuplicates = new HashSet<>(Arrays.asList(parent.model.boxes));
                 parent.model.boxes = boxNoDuplicates.toArray(new Box[0]);
+
+                totalBoxes += parentModel.boxes.length;
 
                 id++;
                 int startIndex = endIndex;
@@ -414,6 +421,9 @@ public class BlockModelParser {
             }
             models.append(");").deleteCharAt(models.lastIndexOf(","));
             indices.append(");").deleteCharAt(indices.lastIndexOf(","));
+
+            System.out.println("Total Boxes => " + totalBoxes);
+            System.out.println("Total Floats => " + (totalBoxes * 13));
 
             String boxStruct = "struct Box {\n" +
                     "    vec3 size;\n" +
