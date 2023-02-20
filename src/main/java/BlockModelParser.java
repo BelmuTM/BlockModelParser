@@ -52,7 +52,7 @@ public class BlockModelParser {
         for (int i = 0; i < elements.size(); i++) {
             JsonObject object = elements.get(i).getAsJsonObject();
 
-            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0});
+            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0});
 
             Double[] from = stringToDoubleArray(object.get("from").toString());
             Double[] to   = stringToDoubleArray(object.get("to").toString());
@@ -73,6 +73,7 @@ public class BlockModelParser {
 
                 box.boxRotation[0] = axis.contains("x") ? angle : 0;
                 box.boxRotation[1] = axis.contains("y") ? angle : 0;
+                box.boxRotation[2] = axis.contains("z") ? angle : 0;
 
                 for (int j = 0; j < 3; j++) {
                     box.rotationOrigin[j] = ((1.0 / 32 * rotationOrigin[j]) - 0.5) * 2.0 + 0.5;
@@ -149,7 +150,7 @@ public class BlockModelParser {
             String boxVec  = "vec3(" + size.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
             String offVec  = "vec3(" + offset.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
             String rotVec0 = "vec2(" + model.boxes[i].modelRotation[0] + ", " + model.boxes[i].modelRotation[1] + ")";
-            String rotVec1 = "vec2(" + model.boxes[i].boxRotation[0] + ", " + model.boxes[i].boxRotation[1] + ")";
+            String rotVec1 = "vec3(" + model.boxes[i].boxRotation[0] + ", " + model.boxes[i].boxRotation[1] + ", " + model.boxes[i].boxRotation[2] + ")";
             String oriVec  = "vec3(" + rotationOrigin.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
 
             boxDeclaration.append("    Box(").append(boxVec).append(", ").append(offVec).append(", ").append(rotVec0).append(", ").append(oriVec).append(", ").append(rotVec1).append("),\n");
@@ -366,7 +367,7 @@ public class BlockModelParser {
                 }
             }
 
-            Box[] liquid = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000})};
+            Box[] liquid = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000})};
             parents.add(new Parent(new Model("water", liquid), new ArrayList<>()));
             parents.add(new Parent(new Model("lava", liquid), new ArrayList<>()));
 
@@ -431,7 +432,7 @@ public class BlockModelParser {
                     "    vec2 modelRotation;\n" +
                     "\n" +
                     "    vec3 pivot;\n" +
-                    "    vec2 boxRotation;\n" +
+                    "    vec3 boxRotation;\n" +
                     "};";
 
             FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
