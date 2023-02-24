@@ -6,6 +6,7 @@ import java.lang.reflect.Array;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class BlockModelParser {
     /*
@@ -384,8 +385,7 @@ public class BlockModelParser {
             parentsNoDuplicates.add(new Parent(waterModel, waterChildren));
             parentsNoDuplicates.add(new Parent(lavaModel, lavaChildren));
 
-            List<Parent> parentsSorted = new ArrayList<>(parentsNoDuplicates);
-            Collections.sort(parentsSorted);
+            List<Parent> parentsSorted = parentsNoDuplicates.stream().sorted().toList();
 
             StringBuilder properties    = new StringBuilder();
             FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
@@ -454,12 +454,17 @@ public class BlockModelParser {
             FileOutputStream outputStream     = new FileOutputStream(modelDataPath);
             DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
 
+            final int pixelsPerBox = 5;
+            int maxPixels = (maxBoxes * pixelsPerBox) + 1;
+
+            final int bytesPerPixel = 3;
+
             for(List<Integer> data : totalData) {
                 for(Integer x : data) {
                     dataOutputStream.writeByte(x);
                 }
 
-                int padding = ((((maxBoxes * 5) + 1) * 3) - data.size()) + 3;
+                int padding = ((maxPixels * bytesPerPixel) - data.size()) + bytesPerPixel;
 
                 for(int i = 0; i < padding; i++) {
                     dataOutputStream.writeByte(0);
@@ -470,7 +475,7 @@ public class BlockModelParser {
             propertiesWriter.write(properties.toString());
             propertiesWriter.close();
 
-            System.out.println("[INFO] Image size: " + ((maxBoxes * 5) + 1) + "x" + parentsSorted.size());
+            System.out.println("[INFO] Image size: " + maxPixels + "x" + parentsSorted.size());
 
             long processEnd = System.currentTimeMillis();
             System.out.println("[SUCCESS] Wrote to files in " + (processEnd - processStart) + "ms.");
