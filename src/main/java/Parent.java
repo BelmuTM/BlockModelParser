@@ -1,7 +1,7 @@
 import java.util.List;
 import java.util.Objects;
 
-public class Parent {
+public class Parent implements Comparable<Parent> {
 
     public Model model;
     public List<Model> children;
@@ -22,5 +22,10 @@ public class Parent {
     @Override
     public int hashCode() {
         return Objects.hash(model, children);
+    }
+
+    @Override
+    public int compareTo(Parent o) {
+        return this.model.name.compareTo(o.model.name);
     }
 }

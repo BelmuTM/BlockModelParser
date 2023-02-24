@@ -1,15 +1,11 @@
 import com.google.gson.*;
 import com.google.gson.stream.JsonReader;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Array;
 import java.nio.file.Paths;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.*;
+import java.util.List;
 
 public class BlockModelParser {
     /*
@@ -22,8 +18,8 @@ public class BlockModelParser {
 
     static final String modelsPath        = "src/main/java/blockmodels";
     static final String propertiesPath    = "src/main/java/blockstates";
-    static final String modelsOutPath     = "src/main/java/output/models.txt";
     static final String propertiesOutPath = "src/main/java/output/block.properties";
+    static final String modelDataPath     = "src/main/java/output/model_data.dat";
 
     public static Double[] stringToDoubleArray(String string) {
         String[] items = string.replaceAll("\\[", "").replaceAll("]", "").replaceAll("\\s", "").split(",");
@@ -33,7 +29,7 @@ public class BlockModelParser {
     }
 
     public static String getUnformattedBlockName(String formattedBlockName) {
-        return formattedBlockName.replaceAll("minecraft:", "").replaceAll("block/", "").replaceAll("\"", "");
+        return formattedBlockName.replaceAll("minecraft:", "").replaceAll("block/", "").replaceAll("\"", "").replaceAll("/", "");
     }
 
     public static Double[] getRotation(JsonObject object) {
@@ -45,14 +41,14 @@ public class BlockModelParser {
         return new Double[]{ xRot, yRot };
     }
 
-    public static Box[] constructBoxArray(Double[] modelRotation, JsonArray elements) {
+    public static Box[] constructBoxArray(Double[] modelRotation, JsonArray elements, int uvLock) {
         if(elements == null) return null;
         List<Box> boxList = new ArrayList<>();
 
         for (int i = 0; i < elements.size(); i++) {
             JsonObject object = elements.get(i).getAsJsonObject();
 
-            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0});
+            Box box = new Box(new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, 0);
 
             Double[] from = stringToDoubleArray(object.get("from").toString());
             Double[] to   = stringToDoubleArray(object.get("to").toString());
@@ -69,7 +65,7 @@ public class BlockModelParser {
             if(rotation != null) {
                 Double[] rotationOrigin = stringToDoubleArray(rotation.get("origin").toString());
                 String axis             = rotation.get("axis").toString();
-                Double angle            = rotation.get("angle").getAsDouble();
+                double angle            = rotation.get("angle").getAsDouble();
 
                 box.boxRotation[0] = axis.contains("x") ? angle : 0;
                 box.boxRotation[1] = axis.contains("y") ? angle : 0;
@@ -79,6 +75,9 @@ public class BlockModelParser {
                     box.rotationOrigin[j] = ((1.0 / 32 * rotationOrigin[j]) - 0.5) * 2.0 + 0.5;
                 }
             }
+
+            box.uvLock = uvLock;
+
             boxList.add(box);
         }
         return boxList.toArray(new Box[]{});
@@ -97,6 +96,8 @@ public class BlockModelParser {
 
         Double[] rotation = getRotation(value);
 
+        int uvLock = value.get("uvlock") == null ? 0 : (value.get("uvlock").getAsString().equals("true") ? 1 : 0);
+
         Model parent = null;
         try {
             String path = modelFile.getCanonicalPath();
@@ -112,7 +113,7 @@ public class BlockModelParser {
                 JsonElement parentField = parentTree.get("parent");
 
                 if (elements != null || parentField == null) {
-                    parent = new Model(name, constructBoxArray(rotation, elements)); break;
+                    parent = new Model(name, constructBoxArray(rotation, elements, uvLock)); break;
                 }
 
                 children.add(new Model(name, null));
@@ -129,34 +130,6 @@ public class BlockModelParser {
         return new Parent(parent, children);
     }
 
-    public static StringBuilder constructBoxDeclaration(Model model) {
-        StringBuilder boxDeclaration = new StringBuilder();
-
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
-        symbols.setDecimalSeparator('.');
-        DecimalFormat numFormat = new DecimalFormat("0.000000", symbols);
-
-        for(int i = 0; i < model.boxes.length; i++) {
-            List<String> size           = new ArrayList<>();
-            List<String> offset         = new ArrayList<>();
-            List<String> rotationOrigin = new ArrayList<>();
-
-            for(int j = 0; j < 3; j++) {
-                size.add(numFormat.format(model.boxes[i].size[j]));
-                offset.add(numFormat.format(model.boxes[i].offset[j]));
-                rotationOrigin.add(numFormat.format(model.boxes[i].rotationOrigin[j]));
-            }
-
-            String boxVec  = "vec3(" + size.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
-            String offVec  = "vec3(" + offset.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
-            String rotVec0 = "vec2(" + model.boxes[i].modelRotation[0] + ", " + model.boxes[i].modelRotation[1] + ")";
-            String rotVec1 = "vec3(" + model.boxes[i].boxRotation[0] + ", " + model.boxes[i].boxRotation[1] + ", " + model.boxes[i].boxRotation[2] + ")";
-            String oriVec  = "vec3(" + rotationOrigin.toString().replaceAll("\\[", "").replaceAll("]", "") + ")";
-
-            boxDeclaration.append("    Box(").append(boxVec).append(", ").append(offVec).append(", ").append(rotVec0).append(", ").append(oriVec).append(", ").append(rotVec1).append("),\n");
-        }
-        return boxDeclaration;
-    }
     static <T> T[] concatWithCollection(T[] array1, T[] array2) {
         List<T> resultList = new ArrayList<>(array1.length + array2.length);
         Collections.addAll(resultList, array1);
@@ -172,6 +145,10 @@ public class BlockModelParser {
         Model model = new Model(name, new Box[]{});
 
         model.name  = model0.name + model1.name.replace(name, "");
+
+        if(model0.boxes == null) model0.boxes = new Box[]{};
+        if(model1.boxes == null) model1.boxes = new Box[]{};
+
         model.boxes = concatWithCollection(model0.boxes, model1.boxes);
 
         return model;
@@ -193,26 +170,27 @@ public class BlockModelParser {
             List<Parent> parents    = new ArrayList<>();
 
             List<Set<Parent>> totalCases = new ArrayList<>();
-            List<Set<String>> totalKeys  = new ArrayList<>();
+            List<Set<String>> totalKeys = new ArrayList<>();
 
             assert blockStatesFiles != null;
-            for(File blockStatesFile : blockStatesFiles) {
+            for (File blockStatesFile : blockStatesFiles) {
                 String path = blockStatesFile.getCanonicalPath();
-                if (!path.endsWith(".json") || path.contains("inventory") || blockStatesFile.getName().equals("fire.json") || blockStatesFile.getName().equals("redstone_wire.json")) continue;
+                if (!path.endsWith(".json") || path.contains("inventory") || blockStatesFile.getName().equals("fire.json") || blockStatesFile.getName().equals("redstone_wire.json"))
+                    continue;
 
                 Gson gson = new Gson();
                 JsonReader reader = gson.newJsonReader(new FileReader(path));
 
-                JsonObject tree     = gson.fromJson(reader, JsonObject.class);
+                JsonObject tree = gson.fromJson(reader, JsonObject.class);
                 JsonElement objects = tree.get("variants");
 
-                if(objects == null && tree.get("multipart") != null) {
+                if (objects == null && tree.get("multipart") != null) {
                     objects = tree.get("multipart");
 
                     Set<Parent> cases = new HashSet<>();
-                    Set<String> keys  = new HashSet<>();
+                    Set<String> keys = new HashSet<>();
 
-                    for(int i = 0; i < objects.getAsJsonArray().size(); i++) {
+                    for (int i = 0; i < objects.getAsJsonArray().size(); i++) {
                         JsonObject blockState = objects.getAsJsonArray().get(i).getAsJsonObject();
                         JsonElement apply = blockState.get("apply");
 
@@ -256,7 +234,7 @@ public class BlockModelParser {
 
             List<List<List<Parent>>> totalCombinations = new ArrayList<>();
 
-            for(Set<Parent> set : totalCases) {
+            for (Set<Parent> set : totalCases) {
                 Map<String, Set<String>> models = new HashMap<>();
                 Set<String> uniqueCases = new HashSet<>();
 
@@ -264,10 +242,10 @@ public class BlockModelParser {
 
                 String blockName = "";
 
-                for(Parent parent : set) {
+                for (Parent parent : set) {
                     blockName = parent.model.name;
 
-                    if(!blockName.contains(":")) {
+                    if (!blockName.contains(":")) {
                         outsider = parent;
                         continue;
                     }
@@ -275,40 +253,50 @@ public class BlockModelParser {
                     String[] subName = parent.model.name.split(":");
                     blockName = subName[0];
 
-                    for(int i = 0; i < subName.length; i++) {
-                        if(!subName[i].contains("=")) continue;
+                    for (int i = 0; i < subName.length; i++) {
+                        if (!subName[i].contains("=")) continue;
                         uniqueCases.add(subName[i].substring(subName[i].indexOf(":") + 1, subName[i].indexOf("=")));
                     }
                 }
 
-                for(String case0 : uniqueCases) {
+                for (String case0 : uniqueCases) {
                     Set<String> vals = new HashSet<>();
 
-                    for(Parent parent : set) {
+                    for (Parent parent : set) {
                         String[] subName = parent.model.name.split(":");
 
                         for (int i = 0; i < subName.length; i++) {
-                            if(!subName[i].contains("=")) continue;
+                            if (!subName[i].contains("=")) continue;
 
                             String case1 = subName[i].substring(subName[i].indexOf(":") + 1, subName[i].indexOf("="));
-                            String val   = subName[i].substring(subName[i].indexOf("=") + 1);
+                            String val = subName[i].substring(subName[i].indexOf("=") + 1);
 
-                            if(case1.equals(case0)) {
+                            if (case1.equals(case0)) {
+
+                                if (val.contains("|")) {
+                                    String[] subVal = val.split("\\|");
+                                    vals.addAll(Arrays.asList(subVal));
+                                    continue;
+                                }
+
                                 vals.add(val);
 
-                                if(blockName.contains("wall")) {
-                                    vals.add("none"); vals.add("tall"); vals.add("low");
+                                if (blockName.contains("wall")) {
+                                    vals.add("none");
+                                    vals.add("tall");
+                                    vals.add("low");
                                 }
 
                                 if (val.equals("false") || val.equals("true")) {
-                                    vals.add("false"); vals.add("true");
+                                    vals.add("false");
+                                    vals.add("true");
                                 }
 
-                                if(case0.contains("leaves")) {
+                                if (case0.contains("leaves")) {
                                     vals.add("none");
                                 }
 
-                                if(case0.contains("level")) {
+                                if (case0.contains("level")) {
                                     vals.add("0");
                                 }
                             }
@@ -319,27 +307,27 @@ public class BlockModelParser {
 
                 int totalPossibleCombinations = 1;
 
-                for(Map.Entry<String, Set<String>> conditionCase : models.entrySet()) {
+                for (Map.Entry<String, Set<String>> conditionCase : models.entrySet()) {
                     totalPossibleCombinations *= conditionCase.getValue().size();
                 }
 
                 int counter = 0;
                 List<List<Parent>> allCombinations = new ArrayList<>();
-                while(counter < totalPossibleCombinations) {
+                while (counter < totalPossibleCombinations) {
                     int copy = counter;
                     List<Parent> combination = new ArrayList<>();
 
-                    for(Map.Entry<String, Set<String>> conditionCase : models.entrySet()) {
+                    for (Map.Entry<String, Set<String>> conditionCase : models.entrySet()) {
                         List<String> arr = new ArrayList<>(conditionCase.getValue());
 
-                        String name   = blockName + ":" + conditionCase.getKey() + "=" + arr.get(copy % arr.size());
+                        String name = blockName + ":" + conditionCase.getKey() + "=" + arr.get(copy % arr.size());
                         Parent parent = getParentFromName(set, name);
 
-                        if(outsider != null) {
+                        if (outsider != null) {
                             combination.add(outsider);
                         }
 
-                        if(parent == null) {
+                        if (parent == null) {
                             parent = new Parent(new Model(name, new Box[]{}), new ArrayList<>());
                         }
 
@@ -354,11 +342,11 @@ public class BlockModelParser {
                 totalCombinations.add(allCombinations);
             }
 
-            for(List<List<Parent>> modelCombinations : totalCombinations) {
-                for(List<Parent> combination : modelCombinations) {
+            for (List<List<Parent>> modelCombinations : totalCombinations) {
+                for (List<Parent> combination : modelCombinations) {
                     Model model = new Model("", new Box[]{});
                     String blockName = "";
-                    for(Parent parent : combination) {
+                    for (Parent parent : combination) {
                         blockName = parent.model.name.contains(":") ? parent.model.name.substring(0, parent.model.name.indexOf(":")) : parent.model.name;
                         model = combineModels(blockName, model, parent.model);
                     }
@@ -367,79 +355,122 @@ public class BlockModelParser {
                 }
             }
 
-            Box[] liquid = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000})};
-            parents.add(new Parent(new Model("water", liquid), new ArrayList<>()));
-            parents.add(new Parent(new Model("lava", liquid), new ArrayList<>()));
-
-            StringBuilder models = new StringBuilder();
-            models.append("const Box[] models = Box[](\n");
-
-            StringBuilder indices = new StringBuilder();
-            indices.append("const uint[] indices = uint[](\n");
-
-            StringBuilder properties = new StringBuilder();
-
             Set<Parent> parentsNoDuplicates = new HashSet<>();
 
-            for(Parent parent : parents) {
+            for (Parent parent : parents) {
                 List<Model> children = new ArrayList<>();
-                for(Parent duplicate : parents) {
+                for (Parent duplicate : parents) {
 
-                    if(parent.model.equals(duplicate.model)) {
-                        if(duplicate.children.size() == 0) children.add(duplicate.model);
-                        else                               children.add(duplicate.children.get(0));
+                    if (parent.model.equals(duplicate.model)) {
+                        if (duplicate.children.size() == 0) children.add(duplicate.model);
+                        else children.add(duplicate.children.get(0));
                     }
                 }
-                parentsNoDuplicates.add(new Parent(parent.model, children));
+                if(parent.model.boxes != null) parentsNoDuplicates.add(new Parent(parent.model, children));
             }
 
-            int id = 0, endIndex = 0;
-            int totalBoxes = 0;
-            for(Parent parent : parentsNoDuplicates) {
-                Model parentModel    = parent.model;
-                List<Model> children = parent.children;
+            Box[] water = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000}, 0)};
+            Box[] lava  = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000}, 1)};
 
-                if(parentModel.boxes == null) continue;
+            Model waterModel = new Model("water", water);
+            Model lavaModel  = new Model("lava", lava);
+
+            List<Model> waterChildren = new ArrayList<>();
+            List<Model> lavaChildren  = new ArrayList<>();
+
+            waterChildren.add(waterModel);
+            lavaChildren.add(lavaModel);
+
+            parentsNoDuplicates.add(new Parent(waterModel, waterChildren));
+            parentsNoDuplicates.add(new Parent(lavaModel, lavaChildren));
+
+            List<Parent> parentsSorted = new ArrayList<>(parentsNoDuplicates);
+            Collections.sort(parentsSorted);
+
+            StringBuilder properties    = new StringBuilder();
+            FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
+
+            List<List<Integer>> totalData = new ArrayList<>();
+
+            int id = 0;
+            int maxBoxes = -1000;
+            for (Parent parent : parentsSorted) {
                 Set<Box> boxNoDuplicates = new HashSet<>(Arrays.asList(parent.model.boxes));
                 parent.model.boxes = boxNoDuplicates.toArray(new Box[0]);
 
-                totalBoxes += parentModel.boxes.length;
-
+                maxBoxes = Math.max(parent.model.boxes.length, maxBoxes);
                 id++;
-                int startIndex = endIndex;
-                endIndex      += parentModel.boxes.length;
 
-                StringBuilder boxDeclaration = constructBoxDeclaration(parentModel);
-                StringBuilder childrenList   = new StringBuilder();
-
-                for(Model child : children) {
+                StringBuilder childrenList = new StringBuilder();
+                for (Model child : parent.children) {
                     childrenList.append(child.name).append(" ");
                 }
 
-                models.append("    /* [ID = ").append(id).append("] ").append(parentModel.name).append("\n(").append(children.size()).append(") ").append(childrenList).append("*/\n").append(boxDeclaration);
-                indices.append("    (uint(").append(parentModel.boxes.length).append(") << 16) | uint(").append(startIndex).append("),\n");
                 properties.append("block.").append(id).append(" = ").append(childrenList.toString().trim()).append("\n");
+
+                List<Integer> data = new ArrayList<>();
+
+                int boxCountX = parent.model.boxes.length;
+                int boxCountY = 0;
+                int boxCountZ = 0;
+
+                data.add(boxCountX); data.add(boxCountY); data.add(boxCountZ);
+
+                for (Box box : parent.model.boxes) {
+                    int sizeX = (int) (box.size[0] * 255.0);
+                    int sizeY = (int) (box.size[1] * 255.0);
+                    int sizeZ = (int) (box.size[2] * 255.0);
+
+                    data.add(sizeX); data.add(sizeY); data.add(sizeZ);
+
+                    int offsetX = (int) ((box.offset[0] * 0.5 + 0.5) * 255);
+                    int offsetY = (int) ((box.offset[1] * 0.5 + 0.5) * 255);
+                    int offsetZ = (int) ((box.offset[2] * 0.5 + 0.5) * 255);
+
+                    data.add(offsetX); data.add(offsetY); data.add(offsetZ);
+
+                    int modelRotationX = box.modelRotation[0].intValue() * 255 / 270;
+                    int modelRotationY = box.modelRotation[1].intValue() * 255 / 270;
+                    int modelRotationZ = box.uvLock;
+
+                    data.add((modelRotationX)); data.add(modelRotationY); data.add(modelRotationZ);
+
+                    int rotationOriginX = (int) ((box.rotationOrigin[0] * 0.5 + 0.5) * 255);
+                    int rotationOriginY = (int) ((box.rotationOrigin[1] * 0.5 + 0.5) * 255);
+                    int rotationOriginZ = (int) ((box.rotationOrigin[2] * 0.5 + 0.5) * 255);
+
+                    data.add(rotationOriginX); data.add(rotationOriginY); data.add(rotationOriginZ);
+
+                    int boxRotationX = (box.boxRotation[0].intValue() + 90) * 255 / 180;
+                    int boxRotationY = (box.boxRotation[1].intValue() + 90) * 255 / 180;
+                    int boxRotationZ = (box.boxRotation[2].intValue() + 90) * 255 / 180;
+
+                    data.add(boxRotationX); data.add(boxRotationY); data.add(boxRotationZ);
+                }
+
+                totalData.add(data);
             }
-            models.append(");").deleteCharAt(models.lastIndexOf(","));
-            indices.append(");").deleteCharAt(indices.lastIndexOf(","));
 
-            System.out.println("Total Boxes => " + totalBoxes);
-            System.out.println("Total Floats => " + (totalBoxes * 13));
+            FileOutputStream outputStream     = new FileOutputStream(modelDataPath);
+            DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
 
-            String boxStruct = "struct Box {\n" +
-                    "    vec3 size;\n" +
-                    "    vec3 offset;\n" +
-                    "    vec2 modelRotation;\n" +
-                    "\n" +
-                    "    vec3 pivot;\n" +
-                    "    vec3 boxRotation;\n" +
-                    "};";
+            for(List<Integer> data : totalData) {
+                for(Integer x : data) {
+                    dataOutputStream.writeByte(x);
+                }
 
-            FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
-            FileWriter modelsWriter     = new FileWriter(modelsOutPath);
+                int padding = ((((maxBoxes * 5) + 1) * 3) - data.size()) + 3;
 
-            propertiesWriter.write(properties.toString());       propertiesWriter.close();
-            modelsWriter.write(boxStruct + "\n\n" + models + "\n\n" + indices + "\n"); modelsWriter.close();
+                for(int i = 0; i < padding; i++) {
+                    dataOutputStream.writeByte(0);
+                }
+            }
+            dataOutputStream.close();
+
+            propertiesWriter.write(properties.toString());
+            propertiesWriter.close();
+
+            System.out.println("[INFO] Image size: " + ((maxBoxes * 5) + 1) + "x" + parentsSorted.size());
 
             long processEnd = System.currentTimeMillis();
             System.out.println("[SUCCESS] Wrote to files in " + (processEnd - processStart) + "ms.");
