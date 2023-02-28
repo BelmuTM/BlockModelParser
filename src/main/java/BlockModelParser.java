@@ -213,7 +213,7 @@ public class BlockModelParser {
 
                         Parent parent = findModelParent(blockStatesFile, conditionBuilder.toString(), apply);
                         parent.model.name = blockStatesFile.getName().replace(".json", "") + conditionBuilder;
-                        parent.model = new Model(parent.model.name, parent.model.boxes);
+                        parent.model = new Multipart(parent.model.name, parent.model.boxes);
 
                         cases.add(parent);
                     }
