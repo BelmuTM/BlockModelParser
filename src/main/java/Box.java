@@ -7,15 +7,15 @@ public class Box {
     public Double[] offset;
     public Double[] modelRotation;
     public Double[] boxRotation;
-    public Double[] rotationOrigin;
+    public Double[] pivot;
     public int uvLock;
 
-    public Box(Double[] size, Double[] offset, Double[] modelRotation, Double[] boxRotation, Double[] rotationOrigin, int uvLock) {
+    public Box(Double[] size, Double[] offset, Double[] modelRotation, Double[] boxRotation, Double[] pivot, int uvLock) {
         this.size           = size;
         this.offset         = offset;
         this.modelRotation  = modelRotation;
         this.boxRotation    = boxRotation;
-        this.rotationOrigin = rotationOrigin;
+        this.pivot          = pivot;
         this.uvLock         = uvLock;
     }
 
@@ -24,7 +24,7 @@ public class Box {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Box box = (Box) o;
-        return Arrays.equals(size, box.size) && Arrays.equals(offset, box.offset) && Arrays.equals(modelRotation, box.modelRotation) && Arrays.equals(boxRotation, box.boxRotation) && Arrays.equals(rotationOrigin, box.rotationOrigin) && Objects.equals(uvLock, box.uvLock);
+        return uvLock == box.uvLock && Arrays.equals(size, box.size) && Arrays.equals(offset, box.offset) && Arrays.equals(modelRotation, box.modelRotation) && Arrays.equals(boxRotation, box.boxRotation) && Arrays.equals(pivot, box.pivot);
     }
 
     @Override
@@ -34,7 +34,7 @@ public class Box {
         result = 31 * result + Arrays.hashCode(offset);
         result = 31 * result + Arrays.hashCode(modelRotation);
         result = 31 * result + Arrays.hashCode(boxRotation);
-        result = 31 * result + Arrays.hashCode(rotationOrigin);
+        result = 31 * result + Arrays.hashCode(pivot);
         return result;
     }
 }

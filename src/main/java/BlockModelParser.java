@@ -6,7 +6,6 @@ import java.lang.reflect.Array;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class BlockModelParser {
     /*
@@ -64,16 +63,16 @@ public class BlockModelParser {
             JsonObject rotation = object.getAsJsonObject("rotation");
 
             if(rotation != null) {
-                Double[] rotationOrigin = stringToDoubleArray(rotation.get("origin").toString());
-                String axis             = rotation.get("axis").toString();
-                double angle            = rotation.get("angle").getAsDouble();
+                Double[] pivot = stringToDoubleArray(rotation.get("origin").toString());
+                String axis    = rotation.get("axis").toString();
+                double angle   = rotation.get("angle").getAsDouble();
 
                 box.boxRotation[0] = axis.contains("x") ? angle : 0;
                 box.boxRotation[1] = axis.contains("y") ? angle : 0;
                 box.boxRotation[2] = axis.contains("z") ? angle : 0;
 
                 for (int j = 0; j < 3; j++) {
-                    box.rotationOrigin[j] = ((1.0 / 32 * rotationOrigin[j]) - 0.5) * 2.0 + 0.5;
+                    box.pivot[j] = ((1.0 / 32 * pivot[j]) - 0.5) * 2.0 + 0.5;
                 }
             }
 
@@ -214,7 +213,7 @@ public class BlockModelParser {
 
                         Parent parent = findModelParent(blockStatesFile, conditionBuilder.toString(), apply);
                         parent.model.name = blockStatesFile.getName().replace(".json", "") + conditionBuilder;
-                        parent.model = new Multipart(parent.model.name, parent.model.boxes);
+                        parent.model = new Model(parent.model.name, parent.model.boxes);
 
                         cases.add(parent);
                     }
@@ -435,11 +434,11 @@ public class BlockModelParser {
 
                     data.add((modelRotationX)); data.add(modelRotationY); data.add(modelRotationZ);
 
-                    int rotationOriginX = (int) ((box.rotationOrigin[0] * 0.5 + 0.5) * 255);
-                    int rotationOriginY = (int) ((box.rotationOrigin[1] * 0.5 + 0.5) * 255);
-                    int rotationOriginZ = (int) ((box.rotationOrigin[2] * 0.5 + 0.5) * 255);
+                    int pivotX = (int) ((box.pivot[0] * 0.5 + 0.5) * 255);
+                    int pivotY = (int) ((box.pivot[1] * 0.5 + 0.5) * 255);
+                    int pivotZ = (int) ((box.pivot[2] * 0.5 + 0.5) * 255);
 
-                    data.add(rotationOriginX); data.add(rotationOriginY); data.add(rotationOriginZ);
+                    data.add(pivotX); data.add(pivotY); data.add(pivotZ);
 
                     int boxRotationX = (box.boxRotation[0].intValue() + 90) * 255 / 180;
                     int boxRotationY = (box.boxRotation[1].intValue() + 90) * 255 / 180;
