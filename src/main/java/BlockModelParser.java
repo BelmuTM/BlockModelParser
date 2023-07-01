@@ -21,6 +21,8 @@ public class BlockModelParser {
     static final String propertiesOutPath = "src/main/java/output/block.properties";
     static final String modelDataPath     = "src/main/java/output/model_data.dat";
 
+    static final String individualBlocksList = "magma_block torch wall_torch lantern campfire:lit=true sea_lantern glowstone";
+
     public static Double[] stringToDoubleArray(String string) {
         String[] items = string.replaceAll("\\[", "").replaceAll("]", "").replaceAll("\\s", "").split(",");
         Double[] array = new Double[items.length];
@@ -165,6 +167,23 @@ public class BlockModelParser {
         try {
             long processStart = System.currentTimeMillis();
 
+            Set<Parent> individualBlocks = new HashSet<>();
+
+            Box[] water = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000}, 0)};
+            Box[] lava  = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000}, 1)};
+
+            Model waterModel = new Model("water", water);
+            Model lavaModel  = new Model("lava", lava);
+
+            List<Model> waterChildren = new ArrayList<>();
+            List<Model> lavaChildren  = new ArrayList<>();
+
+            waterChildren.add(waterModel);
+            lavaChildren.add(lavaModel);
+
+            individualBlocks.add(new Parent(waterModel, waterChildren));
+            individualBlocks.add(new Parent(lavaModel, lavaChildren));
+
             File blockStatesFolder  = new File(propertiesPath);
             File[] blockStatesFiles = blockStatesFolder.listFiles();
             List<Parent> parents    = new ArrayList<>();
@@ -224,12 +243,23 @@ public class BlockModelParser {
                     JsonObject blockStates = objects.getAsJsonObject();
 
                     for (Map.Entry<String, JsonElement> blockState : blockStates.entrySet()) {
-
                         Parent parent = findModelParent(blockStatesFile, blockState.getKey(), blockState.getValue());
                         parents.add(parent);
                     }
                 }
                 reader.close();
+            }
+
+            for(Parent parent : parents) {
+                for(Model model : parent.children) {
+                    if(Arrays.asList(individualBlocksList.split(" ")).contains(model.name.contains(":") ? model.name.substring(0, model.name.indexOf(":")) : model.name)) {
+                        List<Model> children = new ArrayList<>();
+                        children.add(model);
+                        model.boxes = parent.model.boxes;
+
+                        individualBlocks.add(new Parent(new Multipart(model.name, model.boxes), children));
+                    }
+                }
             }
 
             List<List<List<Parent>>> totalCombinations = new ArrayList<>();
@@ -369,22 +399,10 @@ public class BlockModelParser {
                 if(parent.model.boxes != null) parentsNoDuplicates.add(new Parent(parent.model, children));
             }
 
-            Box[] water = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000}, 0)};
-            Box[] lava  = new Box[]{new Box(new Double[]{0.500000, 0.468750, 0.500000}, new Double[]{0.000000, -0.031250, 0.000000}, new Double[]{0.0, 0.0}, new Double[]{0.0, 0.0, 0.0}, new Double[]{0.000000, 0.000000, 0.000000}, 1)};
+            List<Parent> sorted        = parentsNoDuplicates.stream().sorted().toList();
+            List<Parent> parentsSorted = new ArrayList<>(sorted);
 
-            Model waterModel = new Model("water", water);
-            Model lavaModel  = new Model("lava", lava);
-
-            List<Model> waterChildren = new ArrayList<>();
-            List<Model> lavaChildren  = new ArrayList<>();
-
-            waterChildren.add(waterModel);
-            lavaChildren.add(lavaModel);
-
-            parentsNoDuplicates.add(new Parent(waterModel, waterChildren));
-            parentsNoDuplicates.add(new Parent(lavaModel, lavaChildren));
-
-            List<Parent> parentsSorted = parentsNoDuplicates.stream().sorted().toList();
+            parentsSorted.addAll(individualBlocks.stream().sorted().toList());
 
             StringBuilder properties    = new StringBuilder();
             FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
@@ -394,6 +412,15 @@ public class BlockModelParser {
             int id = 0;
             int maxBoxes = -1000;
             for (Parent parent : parentsSorted) {
+
+                if(parent.model.name.contains("torch")) {
+                    parent.model.boxes = new Box[]{ parent.model.boxes[0] };
+
+                    parent.model.boxes[0].size[0] = 0.0625;
+                    parent.model.boxes[0].size[1] = 0.3125;
+                    parent.model.boxes[0].size[2] = 0.0625;
+                }
+
                 Set<Box> boxNoDuplicates = new HashSet<>(Arrays.asList(parent.model.boxes));
                 parent.model.boxes = boxNoDuplicates.toArray(new Box[0]);
 
@@ -402,6 +429,7 @@ public class BlockModelParser {
 
                 StringBuilder childrenList = new StringBuilder();
                 for (Model child : parent.children) {
+                    if(Arrays.asList(individualBlocksList.split(" ")).contains(child.name.contains(":") ? child.name.substring(0, child.name.indexOf(":")) : child.name) && !parent.model.name.equals(child.name)) continue;
                     childrenList.append(child.name).append(" ");
                 }
 
