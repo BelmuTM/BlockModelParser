@@ -21,7 +21,7 @@ public class BlockModelParser {
     static final String propertiesOutPath = "src/main/java/output/block.properties";
     static final String modelDataPath     = "src/main/java/output/model_data.dat";
 
-    static final String individualBlocksList = "magma_block torch wall_torch lantern campfire:lit=true sea_lantern glowstone";
+    static final String individualBlocksList = "glass magma_block torch wall_torch lantern campfire:lit=true sea_lantern glowstone black_stained_glass blue_stained_glass brown_stained_glass cyan_stained_glass gray_stained_glass green_stained_glass light_blue_stained_glass light_gray_stained_glass lime_stained_glass magenta_stained_glass orange_stained_glass pink_stained_glass purple_stained_glass red_stained_glass white_stained_glass yellow_stained_glass tinted_glass ice";
 
     public static Double[] stringToDoubleArray(String string) {
         String[] items = string.replaceAll("\\[", "").replaceAll("]", "").replaceAll("\\s", "").split(",");
@@ -224,7 +224,7 @@ public class BlockModelParser {
                         for (Map.Entry<String, JsonElement> condition : when.entrySet()) {
                             if (when.entrySet().isEmpty()) break;
 
-                            String value = condition.getValue().getAsString();
+                            String value = condition.getValue().toString().replace("\"", "");
                             conditionBuilder.append(":").append(condition.getKey()).append("=").append(value);
 
                             keys.add(condition.getKey());
