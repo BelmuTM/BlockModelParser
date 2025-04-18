@@ -224,7 +224,7 @@ public class BlockModelParser {
                         for (Map.Entry<String, JsonElement> condition : when.entrySet()) {
                             if (when.entrySet().isEmpty()) break;
 
-                            String value = condition.getValue().getAsString();
+                            String value = condition.getValue().toString().replace("\"", "");
                             conditionBuilder.append(":").append(condition.getKey()).append("=").append(value);
 
                             keys.add(condition.getKey());
