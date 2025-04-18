@@ -21,7 +21,7 @@ public class BlockModelParser {
     static final String propertiesOutPath = "src/main/java/output/block.properties";
     static final String modelDataPath     = "src/main/java/output/model_data.dat";
 
-    static final String individualBlocksList = "magma_block torch wall_torch lantern campfire:lit=true sea_lantern glowstone";
+    static final String individualBlocksList = "glass magma_block torch wall_torch lantern campfire:lit=true sea_lantern glowstone black_stained_glass blue_stained_glass brown_stained_glass cyan_stained_glass gray_stained_glass green_stained_glass light_blue_stained_glass light_gray_stained_glass lime_stained_glass magenta_stained_glass orange_stained_glass pink_stained_glass purple_stained_glass red_stained_glass white_stained_glass yellow_stained_glass tinted_glass ice";
 
     public static Double[] stringToDoubleArray(String string) {
         String[] items = string.replaceAll("\\[", "").replaceAll("]", "").replaceAll("\\s", "").split(",");
@@ -90,7 +90,7 @@ public class BlockModelParser {
 
         JsonObject value = state.isJsonArray() ? state.getAsJsonArray().get(0).getAsJsonObject() : state.getAsJsonObject();
 
-        String blockProperties = stateName.equals("") ? "" : ":" + stateName.replaceAll(",", ":");
+        String blockProperties = stateName.isEmpty() ? "" : ":" + stateName.replaceAll(",", ":");
         String blockName       = file.getName().replaceAll(".json", "");
 
         JsonElement model = value.get("model");
@@ -283,9 +283,9 @@ public class BlockModelParser {
                     String[] subName = parent.model.name.split(":");
                     blockName = subName[0];
 
-                    for (int i = 0; i < subName.length; i++) {
-                        if (!subName[i].contains("=")) continue;
-                        uniqueCases.add(subName[i].substring(subName[i].indexOf(":") + 1, subName[i].indexOf("=")));
+                    for (String s : subName) {
+                        if (!s.contains("=")) continue;
+                        uniqueCases.add(s.substring(s.indexOf(":") + 1, s.indexOf("=")));
                     }
                 }
 
@@ -295,11 +295,11 @@ public class BlockModelParser {
                     for (Parent parent : set) {
                         String[] subName = parent.model.name.split(":");
 
-                        for (int i = 0; i < subName.length; i++) {
-                            if (!subName[i].contains("=")) continue;
+                        for (String s : subName) {
+                            if (!s.contains("=")) continue;
 
-                            String case1 = subName[i].substring(subName[i].indexOf(":") + 1, subName[i].indexOf("="));
-                            String val = subName[i].substring(subName[i].indexOf("=") + 1);
+                            String case1 = s.substring(s.indexOf(":") + 1, s.indexOf("="));
+                            String val   = s.substring(s.indexOf("=") + 1);
 
                             if (case1.equals(case0)) {
 
@@ -363,7 +363,7 @@ public class BlockModelParser {
 
                         combination.add(parent);
 
-                        copy = (int) Math.floor(copy / arr.size());
+                        copy = (int) Math.floor((double) copy / arr.size());
                     }
                     allCombinations.add(combination);
                     counter++;
@@ -392,7 +392,7 @@ public class BlockModelParser {
                 for (Parent duplicate : parents) {
 
                     if (parent.model.equals(duplicate.model)) {
-                        if (duplicate.children.size() == 0) children.add(duplicate.model);
+                        if (duplicate.children.isEmpty()) children.add(duplicate.model);
                         else children.add(duplicate.children.get(0));
                     }
                 }
