@@ -14,7 +14,7 @@ public class BlockModelParser {
             fayer3 - Help with compressing the models
      */
 
-    static final int MAX_HIERARCHY_SIZE = 10;
+    static final int MAX_HIERARCHY_SIZE = 20;
 
     static final String modelsPath        = "src/main/java/blockmodels";
     static final String propertiesPath    = "src/main/java/blockstates";
@@ -193,7 +193,8 @@ public class BlockModelParser {
             assert blockStatesFiles != null;
             for (File blockStatesFile : blockStatesFiles) {
                 String path = blockStatesFile.getCanonicalPath();
-                if (!path.endsWith(".json") || path.contains("inventory") || blockStatesFile.getName().equals("fire.json") || blockStatesFile.getName().equals("redstone_wire.json"))
+
+                if (!path.endsWith(".json") || path.contains("inventory"))
                     continue;
 
                 Gson gson = new Gson();
@@ -205,32 +206,81 @@ public class BlockModelParser {
                 if (objects == null && tree.get("multipart") != null) {
                     objects = tree.get("multipart");
 
+                    //System.out.println(blockStatesFile.getName());
+
                     Set<Parent> cases = new HashSet<>();
 
                     for (int i = 0; i < objects.getAsJsonArray().size(); i++) {
                         JsonObject blockState = objects.getAsJsonArray().get(i).getAsJsonObject();
                         JsonElement apply = blockState.get("apply");
 
-                        JsonObject when = new JsonObject();
+                        JsonObject when;
+
+                        List<Set<Map.Entry<String, JsonElement>>> conditionSets = new ArrayList<>();
 
                         if (blockState.get("when") != null) {
                             when = blockState.get("when").getAsJsonObject();
+
+                            if (when.get("AND") != null) {
+                                Map<String, JsonElement> merged = new LinkedHashMap<>();
+                                JsonArray and = when.get("AND").getAsJsonArray();
+
+                                for (int j = 0; j < and.size(); j++) {
+                                    JsonObject clause = and.get(j).getAsJsonObject();
+                                    for (Map.Entry<String, JsonElement> entry : clause.entrySet()) {
+                                        if (merged.containsKey(entry.getKey())) {
+                                            System.err.println("Duplicate key in AND: " + entry.getKey());
+                                        }
+                                        merged.put(entry.getKey(), entry.getValue().deepCopy());
+                                    }
+                                }
+
+                                conditionSets.add(new HashSet<>(merged.entrySet()));
+
+                            } else if (when.get("OR") != null) {
+                                JsonArray or = when.get("OR").getAsJsonArray();
+
+                                for (int j = 0; j < or.size(); j++) {
+                                    JsonObject clause = or.get(j).getAsJsonObject();
+                                    Map<String, JsonElement> singleClauseCopy = new LinkedHashMap<>();
+
+                                    for (Map.Entry<String, JsonElement> entry : clause.entrySet()) {
+                                        singleClauseCopy.put(entry.getKey(), entry.getValue().deepCopy());
+                                    }
+
+                                    conditionSets.add(new HashSet<>(singleClauseCopy.entrySet()));
+                                }
+
+                            } else {
+                                Map<String, JsonElement> fallback = new LinkedHashMap<>();
+                                for (Map.Entry<String, JsonElement> entry : when.entrySet()) {
+                                    fallback.put(entry.getKey(), entry.getValue().deepCopy());
+                                }
+
+                                conditionSets.add(new HashSet<>(fallback.entrySet()));
+                            }
+                        } else {
+                            conditionSets.add(Collections.emptySet());
                         }
 
-                        StringBuilder conditionBuilder = new StringBuilder();
+                        for (Set<Map.Entry<String, JsonElement>> conditionSet : conditionSets) {
+                            StringBuilder conditionBuilder = new StringBuilder();
 
-                        for (Map.Entry<String, JsonElement> condition : when.entrySet()) {
-                            if (when.entrySet().isEmpty()) break;
+                            for (Map.Entry<String, JsonElement> condition : conditionSet) {
+                                if (conditionSet.isEmpty()) break;
 
-                            String value = condition.getValue().toString().replace("\"", "");
-                            conditionBuilder.append(":").append(condition.getKey()).append("=").append(value);
+                                String value = condition.getValue().getAsString();
+                                conditionBuilder.append(":").append(condition.getKey()).append("=").append(value);
+                            }
+
+                            Parent parent     = findModelParent(blockStatesFile, conditionBuilder.toString(), apply);
+                            parent.model.name = blockStatesFile.getName().replace(".json", "") + conditionBuilder;
+                            parent.model      = new Multipart(parent.model.name, parent.model.boxes);
+
+                            //System.out.println(parent.model.name);
+
+                            cases.add(parent);
                         }
-
-                        Parent parent = findModelParent(blockStatesFile, conditionBuilder.toString(), apply);
-                        parent.model.name = blockStatesFile.getName().replace(".json", "") + conditionBuilder;
-                        parent.model = new Multipart(parent.model.name, parent.model.boxes);
-
-                        cases.add(parent);
                     }
                     totalCases.add(cases);
 
@@ -373,7 +423,7 @@ public class BlockModelParser {
                     String blockName = "";
                     for (Parent parent : combination) {
                         blockName = parent.model.name.contains(":") ? parent.model.name.substring(0, parent.model.name.indexOf(":")) : parent.model.name;
-                        model = combineModels(blockName, model, parent.model);
+                        model     = combineModels(blockName, model, parent.model);
                     }
                     model.name = blockName + model.name;
                     parents.add(new Parent(model, new ArrayList<>()));
@@ -388,7 +438,7 @@ public class BlockModelParser {
 
                     if (parent.model.equals(duplicate.model)) {
                         if (duplicate.children.isEmpty()) children.add(duplicate.model);
-                        else children.add(duplicate.children.get(0));
+                        else                              children.add(duplicate.children.get(0));
                     }
                 }
                 if (parent.model.boxes != null) parentsNoDuplicates.add(new Parent(parent.model, children));
@@ -405,7 +455,7 @@ public class BlockModelParser {
             List<List<Integer>> totalData = new ArrayList<>();
 
             int id = 0;
-            int maxBoxes = -1000;
+            int maxBoxes = -1;
             for (Parent parent : parentsSorted) {
 
                 if (parent.model.name.contains("torch")) {
