@@ -9,9 +9,9 @@ import java.util.List;
 
 public class BlockModelParser {
     /*
-        CREDITS:
-        Bálint#1673 - Suggesting the idea of this project and helping to go through it
-        fayer3#2332 - Help with compressing the models
+        [Credits]:
+            Bálint - Suggesting the idea of this project and helping to go through it
+            fayer3 - Help with compressing the models
      */
 
     static final int MAX_HIERARCHY_SIZE = 10;
@@ -27,7 +27,7 @@ public class BlockModelParser {
         String[] items = string.replaceAll("\\[", "").replaceAll("]", "").replaceAll("\\s", "").split(",");
         Double[] array = new Double[items.length];
 
-        for(int i = 0; i < items.length; i++) array[i] = Double.valueOf(items[i]); return array;
+        for (int i = 0; i < items.length; i++) array[i] = Double.valueOf(items[i]); return array;
     }
 
     public static String getUnformattedBlockName(String formattedBlockName) {
@@ -40,11 +40,11 @@ public class BlockModelParser {
         double xRot = xRotElement == null ? 0 : xRotElement.getAsDouble();
         double yRot = yRotElement == null ? 0 : yRotElement.getAsDouble();
 
-        return new Double[]{ xRot, yRot };
+        return new Double[]{xRot, yRot};
     }
 
     public static Box[] constructBoxArray(Double[] modelRotation, JsonArray elements, int uvLock) {
-        if(elements == null) return null;
+        if (elements == null) return null;
         List<Box> boxList = new ArrayList<>();
 
         for (int i = 0; i < elements.size(); i++) {
@@ -64,7 +64,7 @@ public class BlockModelParser {
 
             JsonObject rotation = object.getAsJsonObject("rotation");
 
-            if(rotation != null) {
+            if (rotation != null) {
                 Double[] pivot = stringToDoubleArray(rotation.get("origin").toString());
                 String axis    = rotation.get("axis").toString();
                 double angle   = rotation.get("angle").getAsDouble();
@@ -148,8 +148,8 @@ public class BlockModelParser {
 
         model.name  = model0.name + model1.name.replace(name, "");
 
-        if(model0.boxes == null) model0.boxes = new Box[]{};
-        if(model1.boxes == null) model1.boxes = new Box[]{};
+        if (model0.boxes == null) model0.boxes = new Box[]{};
+        if (model1.boxes == null) model1.boxes = new Box[]{};
 
         model.boxes = concatWithCollection(model0.boxes, model1.boxes);
 
@@ -157,8 +157,8 @@ public class BlockModelParser {
     }
 
     public static Parent getParentFromName(Set<Parent> parents, String name) {
-        for(Parent parent : parents) {
-            if(parent.model.name.equals(name)) return parent;
+        for (Parent parent : parents) {
+            if (parent.model.name.equals(name)) return parent;
         }
         return null;
     }
@@ -189,7 +189,6 @@ public class BlockModelParser {
             List<Parent> parents    = new ArrayList<>();
 
             List<Set<Parent>> totalCases = new ArrayList<>();
-            List<Set<String>> totalKeys = new ArrayList<>();
 
             assert blockStatesFiles != null;
             for (File blockStatesFile : blockStatesFiles) {
@@ -207,7 +206,6 @@ public class BlockModelParser {
                     objects = tree.get("multipart");
 
                     Set<Parent> cases = new HashSet<>();
-                    Set<String> keys = new HashSet<>();
 
                     for (int i = 0; i < objects.getAsJsonArray().size(); i++) {
                         JsonObject blockState = objects.getAsJsonArray().get(i).getAsJsonObject();
@@ -226,8 +224,6 @@ public class BlockModelParser {
 
                             String value = condition.getValue().toString().replace("\"", "");
                             conditionBuilder.append(":").append(condition.getKey()).append("=").append(value);
-
-                            keys.add(condition.getKey());
                         }
 
                         Parent parent = findModelParent(blockStatesFile, conditionBuilder.toString(), apply);
@@ -237,7 +233,6 @@ public class BlockModelParser {
                         cases.add(parent);
                     }
                     totalCases.add(cases);
-                    totalKeys.add(keys);
 
                 } else {
                     JsonObject blockStates = objects.getAsJsonObject();
@@ -250,9 +245,9 @@ public class BlockModelParser {
                 reader.close();
             }
 
-            for(Parent parent : parents) {
-                for(Model model : parent.children) {
-                    if(Arrays.asList(individualBlocksList.split(" ")).contains(model.name.contains(":") ? model.name.substring(0, model.name.indexOf(":")) : model.name)) {
+            for (Parent parent : parents) {
+                for (Model model : parent.children) {
+                    if (Arrays.asList(individualBlocksList.split(" ")).contains(model.name.contains(":") ? model.name.substring(0, model.name.indexOf(":")) : model.name)) {
                         List<Model> children = new ArrayList<>();
                         children.add(model);
                         model.boxes = parent.model.boxes;
@@ -396,7 +391,7 @@ public class BlockModelParser {
                         else children.add(duplicate.children.get(0));
                     }
                 }
-                if(parent.model.boxes != null) parentsNoDuplicates.add(new Parent(parent.model, children));
+                if (parent.model.boxes != null) parentsNoDuplicates.add(new Parent(parent.model, children));
             }
 
             List<Parent> sorted        = parentsNoDuplicates.stream().sorted().toList();
@@ -413,7 +408,7 @@ public class BlockModelParser {
             int maxBoxes = -1000;
             for (Parent parent : parentsSorted) {
 
-                if(parent.model.name.contains("torch")) {
+                if (parent.model.name.contains("torch")) {
                     parent.model.boxes = new Box[]{ parent.model.boxes[0] };
 
                     parent.model.boxes[0].size[0] = 0.0625;
@@ -429,7 +424,7 @@ public class BlockModelParser {
 
                 StringBuilder childrenList = new StringBuilder();
                 for (Model child : parent.children) {
-                    if(Arrays.asList(individualBlocksList.split(" ")).contains(child.name.contains(":") ? child.name.substring(0, child.name.indexOf(":")) : child.name) && !parent.model.name.equals(child.name)) continue;
+                    if (Arrays.asList(individualBlocksList.split(" ")).contains(child.name.contains(":") ? child.name.substring(0, child.name.indexOf(":")) : child.name) && !parent.model.name.equals(child.name)) continue;
                     childrenList.append(child.name).append(" ");
                 }
 
@@ -486,15 +481,19 @@ public class BlockModelParser {
 
             final int bytesPerPixel = 3;
 
-            for(List<Integer> data : totalData) {
-                for(Integer x : data) {
+            int totalByteCount = 0;
+
+            for (List<Integer> data : totalData) {
+                for (Integer x : data) {
                     dataOutputStream.writeByte(x);
+                    totalByteCount++;
                 }
 
                 int padding = ((maxPixels * bytesPerPixel) - data.size()) + bytesPerPixel;
 
-                for(int i = 0; i < padding; i++) {
+                for (int i = 0; i < padding; i++) {
                     dataOutputStream.writeByte(0);
+                    totalByteCount++;
                 }
             }
             dataOutputStream.close();
@@ -502,7 +501,8 @@ public class BlockModelParser {
             propertiesWriter.write(properties.toString());
             propertiesWriter.close();
 
-            System.out.println("[INFO] Image size: " + maxPixels + "x" + parentsSorted.size());
+            System.out.println("[INFO] Image resolution: " + (maxPixels + 1) + " x " + parentsSorted.size());
+            System.out.println("[INFO] Image size: " + totalByteCount + " bytes");
 
             long processEnd = System.currentTimeMillis();
             System.out.println("[SUCCESS] Wrote to files in " + (processEnd - processStart) + "ms.");
