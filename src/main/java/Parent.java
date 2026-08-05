@@ -15,8 +15,10 @@ public class Parent implements Comparable<Parent> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
+
         Parent parent = (Parent) o;
-        return Objects.equals(model, parent.model) && Objects.equals(children, parent.children);
+        return Objects.equals(model, parent.model)
+            && Objects.equals(children, parent.children);
     }
 
     @Override

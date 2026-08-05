@@ -14,6 +14,7 @@ public class Model {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (getClass() != o.getClass()) return false;
+
         Model model = (Model) o;
         return Arrays.equals(boxes, model.boxes);
     }

@@ -24,7 +24,12 @@ public class Box {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Box box = (Box) o;
-        return uvLock == box.uvLock && Arrays.equals(size, box.size) && Arrays.equals(offset, box.offset) && Arrays.equals(modelRotation, box.modelRotation) && Arrays.equals(boxRotation, box.boxRotation) && Arrays.equals(pivot, box.pivot);
+        return uvLock == box.uvLock
+            && Arrays.equals(size, box.size)
+            && Arrays.equals(offset, box.offset)
+            && Arrays.equals(modelRotation, box.modelRotation)
+            && Arrays.equals(boxRotation, box.boxRotation)
+            && Arrays.equals(pivot, box.pivot);
     }
 
     @Override

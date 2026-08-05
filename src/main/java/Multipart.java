@@ -17,8 +17,10 @@ public class Multipart extends Model {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
+
         Multipart multipart = (Multipart) o;
-        return Objects.equals(name, multipart.name) && Arrays.equals(boxes, multipart.boxes);
+        return Objects.equals(name, multipart.name)
+            && Arrays.equals(boxes, multipart.boxes);
     }
 
     @Override
