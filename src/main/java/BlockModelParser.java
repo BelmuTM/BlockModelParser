@@ -98,18 +98,17 @@ public class BlockModelParser {
             if (rotation != null) {
                 Double[] pivot = stringToDoubleArray(rotation.get("origin").toString());
 
-                if (rotation.get("axis") != null) {
-
+                if (rotation.get("angle") != null) {
                     String axis  = rotation.get("axis").toString();
                     double angle = rotation.get("angle").getAsDouble();
 
                     box.boxRotation[0] = axis.contains("x") ? angle : 0;
                     box.boxRotation[1] = axis.contains("y") ? angle : 0;
                     box.boxRotation[2] = axis.contains("z") ? angle : 0;
+                }
 
-                    for (int j = 0; j < 3; j++) {
-                        box.pivot[j] = ((1.0 / 32 * pivot[j]) - 0.5) * 2.0 + 0.5;
-                    }
+                for (int j = 0; j < 3; j++) {
+                    box.pivot[j] = ((1.0 / 32 * pivot[j]) - 0.5) * 2.0 + 0.5;
                 }
             }
 
@@ -219,7 +218,7 @@ public class BlockModelParser {
 
         int boxCount = model.boxes.length;
 
-        data.add(boxCount); data.add(0); data.add(0);
+        data.add(boxCount); data.add(0); data.add(0); data.add(0);
 
         for (Box box : model.boxes) {
 
@@ -229,7 +228,7 @@ public class BlockModelParser {
             int sizeY = (int) (box.size[1] * maxInt8);
             int sizeZ = (int) (box.size[2] * maxInt8);
 
-            data.add(sizeX); data.add(sizeY); data.add(sizeZ);
+            data.add(sizeX); data.add(sizeY); data.add(sizeZ); data.add(0);
 
             // Offset
 
@@ -237,7 +236,7 @@ public class BlockModelParser {
             int offsetY = (int) ((box.offset[1] * 0.5 + 0.5) * maxInt8);
             int offsetZ = (int) ((box.offset[2] * 0.5 + 0.5) * maxInt8);
 
-            data.add(offsetX); data.add(offsetY); data.add(offsetZ);
+            data.add(offsetX); data.add(offsetY); data.add(offsetZ); data.add(0);
 
             // Model rotation
 
@@ -245,7 +244,7 @@ public class BlockModelParser {
             int modelRotationY = box.modelRotation[1].intValue() * maxInt8 / 270;
             int modelRotationZ = box.uvLock;
 
-            data.add((modelRotationX)); data.add(modelRotationY); data.add(modelRotationZ);
+            data.add((modelRotationX)); data.add(modelRotationY); data.add(modelRotationZ); data.add(0);
 
             // Pivot
 
@@ -253,7 +252,7 @@ public class BlockModelParser {
             int pivotY = (int) ((box.pivot[1] * 0.5 + 0.5) * maxInt8);
             int pivotZ = (int) ((box.pivot[2] * 0.5 + 0.5) * maxInt8);
 
-            data.add(pivotX); data.add(pivotY); data.add(pivotZ);
+            data.add(pivotX); data.add(pivotY); data.add(pivotZ); data.add(0);
 
             // Box rotation
 
@@ -261,7 +260,7 @@ public class BlockModelParser {
             int boxRotationY = (box.boxRotation[1].intValue() + 90) * maxInt8 / 180;
             int boxRotationZ = (box.boxRotation[2].intValue() + 90) * maxInt8 / 180;
 
-            data.add(boxRotationX); data.add(boxRotationY); data.add(boxRotationZ);
+            data.add(boxRotationX); data.add(boxRotationY); data.add(boxRotationZ); data.add(0);
         }
 
         return data;
@@ -630,12 +629,11 @@ public class BlockModelParser {
         int maxBoxes;
         int parentCount;
         int totalByteCount;
-        int imageWidth;
     }
 
     private static WriteResult writeOutputFiles(List<Parent> parentsSorted) throws IOException {
-        StringBuilder properties    = new StringBuilder();
-        FileWriter propertiesWriter = new FileWriter(propertiesOutPath);
+        StringBuilder properties       = new StringBuilder();
+        FileWriter    propertiesWriter = new FileWriter(propertiesOutPath);
 
         List<List<Integer>> totalModelData = new ArrayList<>();
         List<String> individualNames = Arrays.asList(IndividualBlocksList.individualBlocksList.split("\n"));
@@ -658,7 +656,8 @@ public class BlockModelParser {
                     ? child.name.substring(0, child.name.indexOf(":"))
                     : child.name;
 
-                if (individualNames.contains(baseName) && !parent.model.name.equals(child.name)) continue;
+                if (individualNames.contains(baseName) && !parent.model.name.equals(child.name))
+                    continue;
 
                 childrenList.append(child.name).append(" ");
             }
@@ -674,7 +673,7 @@ public class BlockModelParser {
         final int pixelsPerBox = 5;
         int maxPixels = (maxBoxes * pixelsPerBox) + 1;
 
-        final int bytesPerPixel = 3;
+        final int bytesPerPixel = 4;
 
         int totalByteCount = 0;
 
