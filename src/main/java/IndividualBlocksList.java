@@ -4,6 +4,7 @@ public class IndividualBlocksList {
 
   static final String individualBlocksList = """
         end_rod
+        nether_portal
         jack_o_lantern
         pearlescent_froglight
         verdant_froglight
@@ -39,6 +40,8 @@ public class IndividualBlocksList {
         white_stained_glass
         yellow_stained_glass
         ice
+        water
+        lava
         """;
 
 }

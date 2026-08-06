@@ -18,6 +18,7 @@ public class BlockModelParser {
     static final String propertiesPath    = "src/main/java/blockstates";
     static final String propertiesOutPath = "src/main/java/output/block.properties";
     static final String modelDataPath     = "src/main/java/output/model_data.dat";
+    static final String idMappingsOutPath = "src/main/java/output/block_id_mappings.glsl";
 
     static final Box[] fluidModel = new Box[]{
         new Box(
@@ -34,6 +35,8 @@ public class BlockModelParser {
     static final Model lavaModel  = new Model("lava", fluidModel);
 
     static final int MAX_MODEL_HIERARCHY_SIZE = 20;
+
+    static final int MAX_ID_MAPPING_LINE_WIDTH = 60;
 
     public static Double[] stringToDoubleArray(String string) {
         String[] items = string
@@ -269,8 +272,16 @@ public class BlockModelParser {
     private static Set<Parent> seedFluidBlocks() {
         Set<Parent> individualBlocks = new HashSet<>();
 
-        individualBlocks.add(new Parent(waterModel, new ArrayList<>()));
-        individualBlocks.add(new Parent(lavaModel, new ArrayList<>()));
+        List<Model> waterChildren = new ArrayList<>();
+        List<Model> lavaChildren  = new ArrayList<>();
+
+        lavaModel.boxes[0].uvLock = 1;
+
+        waterChildren.add(waterModel);
+        lavaChildren.add(lavaModel);
+
+        individualBlocks.add(new Parent(waterModel, waterChildren));
+        individualBlocks.add(new Parent(lavaModel, lavaChildren));
 
         return individualBlocks;
     }
@@ -625,6 +636,42 @@ public class BlockModelParser {
         return sorted;
     }
 
+    private static boolean isFullBlock(Model model) {
+        if (model.boxes == null || model.boxes.length != 1) return false;
+
+        Box box = model.boxes[0];
+
+        final Box fullBlock = new Box(
+            new Double[]{0.5, 0.5, 0.5},    // size
+            new Double[]{0.0, 0.0, 0.0},    // offset
+            new Double[]{0.0, 0.0},         // model rotation
+            new Double[]{0.0, 0.0, 0.0},    // box rotation
+            new Double[]{0.0, 0.0, 0.0},    // pivot
+            1                               // uv lock
+        );
+
+        return Objects.equals(box, fullBlock);
+    }
+
+    // Formats "some_block:key=val" into the UPPER_SNAKE_CASE macro name used in the block id mappings file
+    private static String toMacroName(String modelName) {
+        return modelName
+            .replace(":", "_")
+            .replace("=", "_")
+            .toUpperCase();
+    }
+
+    private static void appendIdMapping(StringBuilder idMappings, String macroName, int id) {
+        String defineString = "#define " + macroName;
+
+        idMappings
+            .append(defineString)
+            .append(
+                " ".repeat(Math.max(0, MAX_ID_MAPPING_LINE_WIDTH - defineString.length()))
+            )
+            .append(id).append("\n");
+    }
+
     private static final class WriteResult {
         int maxBoxes;
         int parentCount;
@@ -635,7 +682,19 @@ public class BlockModelParser {
         StringBuilder properties       = new StringBuilder();
         FileWriter    propertiesWriter = new FileWriter(propertiesOutPath);
 
+        properties
+            .append("# Generated block ID mappings (https://github.com/BelmuTM/BlockModelParser)")
+            .append("\n\n");
+
+        StringBuilder idMappings       = new StringBuilder();
+        FileWriter    idMappingsWriter = new FileWriter(idMappingsOutPath);
+
+        idMappings
+            .append("// Generated block ID mappings (https://github.com/BelmuTM/BlockModelParser)")
+            .append("\n\n");
+
         List<List<Integer>> totalModelData = new ArrayList<>();
+
         List<String> individualNames = Arrays.asList(IndividualBlocksList.individualBlocksList.split("\n"));
 
         int id = 0;
@@ -662,7 +721,31 @@ public class BlockModelParser {
                 childrenList.append(child.name).append(" ");
             }
 
-            properties.append("block.").append(id).append(" = ").append(childrenList.toString().trim()).append("\n");
+            // Populating block_id_mappings.glsl file
+
+            String blockName = parent.children.isEmpty()
+                ? parent.model.name
+                : parent.children.get(0).name;
+
+            if (blockName.contains(":"))
+                blockName = blockName.substring(0, blockName.indexOf(":"));
+
+            boolean fullBlock = isFullBlock(parent.model);
+
+            if (individualNames.contains(blockName)) {
+                appendIdMapping(idMappings, toMacroName(parent.children.get(0).name), id);
+
+            } else if (fullBlock && parent.children.size() > 1) {
+                appendIdMapping(idMappings, "FULL_BLOCKS", id);
+            }
+
+            // Populating block.properties file
+            properties
+                .append("block.")
+                .append(id)
+                .append(" = ")
+                .append(childrenList.toString().trim())
+                .append("\n");
 
             totalModelData.add(encodeBlockModel(parent.model));
         }
@@ -696,6 +779,9 @@ public class BlockModelParser {
         propertiesWriter.write(properties.toString());
         propertiesWriter.close();
 
+        idMappingsWriter.write(idMappings.toString());
+        idMappingsWriter.close();
+
         WriteResult result = new WriteResult();
         result.maxBoxes       = maxPixels + 1;
         result.parentCount    = parentsSorted.size();
@@ -716,6 +802,7 @@ public class BlockModelParser {
             promoteIndividualBlocks(parents, individualBlocks);
 
             List<List<List<Parent>>> totalCombinations = expandAllMultipartCombinations(scanResult.multipartCaseSets);
+
             mergeCombinationsIntoParents(totalCombinations, parents);
 
             List<Parent> parentsSorted = buildSortedParentList(parents, individualBlocks);
@@ -729,7 +816,7 @@ public class BlockModelParser {
             System.out.println("[SUCCESS] Wrote to files in " + (processEnd - processStart) + "ms.");
 
         } catch(IOException ioe) {
-            System.out.println("[ERROR]: Failed to write output data to files.");
+            System.out.println("[ERROR]: Failed to write output data to files: " + ioe.getMessage());
         }
     }
 
